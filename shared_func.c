@@ -8,7 +8,7 @@ void daemon_init(bool bCloseFile)
 	return;
 }
 
-int init_pthread_lock(pthread_mutex_lock *)
+int init_pthread_lock(pthread_mutex_t *pthread_lock)
 {
 	printf("init_pthread_lock done!\n");
 

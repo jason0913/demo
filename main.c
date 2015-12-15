@@ -1,10 +1,17 @@
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
 #include <signal.h>
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 #include "logger.h"
 #include "sockopt.h"
 #include "tracker_func.h"
 #include "shared_func.h"
-#include "fdfs_global.c"
+#include "fdfs_global.h"
+#include "tracker_service.h"
 
 bool bReloadFlag = false;
 
@@ -27,7 +34,7 @@ int main(int argc, char const *argv[])
 	if (argc <2)
 	{
 		printf("Usage: fdfs_tracker <conf_file_name\n");
-		exit(-1);
+		return 1;
 	}
 	conf_filename = argv[1];
 	memset(bind_addr,0,sizeof(bind_addr));
@@ -38,7 +45,7 @@ int main(int argc, char const *argv[])
 		return result;
 	}
 
-	if ((result = check_and_mk_dir_log()) != 0)
+	if ((result = check_and_mk_log_dir()) != 0)
 	{
 		printf("check_and_mk_dir_log failed!\n");
 		return result;
@@ -91,7 +98,21 @@ int main(int argc, char const *argv[])
 		}
 		else
 		{
-
+			if (2 > g_tracker_thread_count)
+			{
+				result = pthread_create(&pid,&pthd_attr,tracker_thread_entrance,(void*)comesock);
+				if (0 != result)
+				{
+					printf("create pthread failed!\n");
+					close(comesock);
+				}
+				else
+				{
+					g_tracker_thread_count++;
+				}
+			}
+			else
+				printf("g_tracker_thread_count : %d\n",g_tracker_thread_count);
 
 		}
 		if (pthread_mutex_unlock(&g_tracker_thread_lock) !=0)
@@ -99,6 +120,9 @@ int main(int argc, char const *argv[])
 			printf("pthread_mutex_unlock failed!\n");
 			break;
 		}
+
+		printf("g_continue_flag. main sleep.... \n");
+		sleep(3);
 	}
 
 	while(g_tracker_thread_count !=0)
@@ -107,7 +131,7 @@ int main(int argc, char const *argv[])
 	}
 
 	tracker_mem_destroy();
-	pthread_attr_destroy();
+	pthread_attr_destroy(&pthd_attr);
 	pthread_mutex_destroy(&g_tracker_thread_lock);
 
 	printf("exit normally\n");

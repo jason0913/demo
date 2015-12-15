@@ -1,1 +1,1 @@
-a demo project for makefileemo
+a demo project for makefile
