@@ -1,6 +1,4 @@
-#ifndef __FDFS_GLOBALH
-#define __FDFS_GLOBALH
-
+#include <pthread.h>
 #include "fdfs_define.h"
 
  int g_server_port = FDFS_STORAGE_SERVER_DEF_PORT;
@@ -10,5 +8,3 @@
 
  pthread_mutex_t g_tracker_thread_lock;
  int g_tracker_thread_count = 0;
-
-#endif

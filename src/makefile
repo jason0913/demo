@@ -6,6 +6,7 @@ RM = rm
 FLAGS = -Wall -lpthread -g
 RMFLAG = -rf
 
+INCLUDE = ../include/
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS))
 EXE = demo.exe
@@ -15,7 +16,7 @@ $(EXE): $(OBJS)
 	@echo "$$OBJS = $(OBJS)"
 	$(CC) -o $@ $^ $(FLAGS)
 %.o: %.c
-	$(CC) -c $^ -o $@ $(FLAGS)
+	$(CC) -c $^  -I $(INCLUDE) -o $@ $(FLAGS)
 
 clean:
 	$(RM) $(RMFLAG) $(EXE) $(OBJS)
