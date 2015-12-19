@@ -3,6 +3,8 @@
 
 #include <pthread.h>
 
+#define MAX_PATH_SIZE				256
+
 #define DEFAULT_NETWORK_TIMEOUT			30
 #define FDFS_IPADDR_SIZE 16
 #define FDFS_STORAGE_SERVER_DEF_PORT		23000

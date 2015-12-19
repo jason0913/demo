@@ -3,7 +3,7 @@
 CC = gcc
 RM = rm
 #FLAGS = -Wall -O2
-FLAGS = -Wall -lpthread -g
+FLAGS = -Wall -lpthread -D__DEBUG__ -g
 RMFLAG = -rf
 
 INCLUDE = ../include/

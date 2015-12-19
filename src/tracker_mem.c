@@ -3,7 +3,11 @@
 
 int tracker_mem_init()
 {
-	printf("tracker_mem_init done!\n");
+
+#ifdef __DEBUG__
+	printf("tracker_mem_init to be finish! ===>>>\
+			file:%s, line:%d\n",__FILE__,__LINE__);
+#endif
 
 	return 0;
 }

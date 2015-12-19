@@ -11,5 +11,6 @@ void* tracker_thread_entrance(void* arg)
 	{
 		printf("thread id %x\n", pthread_self());
 		sleep(2);
+		break;
 	}
 }
