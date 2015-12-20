@@ -6,6 +6,7 @@ RM = rm
 FLAGS = -Wall -lpthread -D__DEBUG__ -g
 RMFLAG = -rf
 
+EXDIR = ../data ../log
 INCLUDE = ../include/
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS))
@@ -19,5 +20,5 @@ $(EXE): $(OBJS)
 	$(CC) -c $^  -I $(INCLUDE) -o $@ $(FLAGS)
 
 clean:
-	$(RM) $(RMFLAG) $(EXE) $(OBJS)
+	$(RM) $(RMFLAG) $(EXE) $(OBJS) $(EXDIR)
 

@@ -504,9 +504,167 @@ int tracker_mem_init()
 	return 0;
 }
 
+int tracker_save_storages()
+{
+
+	char filname[MAX_PATH_SIZE];
+	FILE *fp;
+	FDFSGroupInfo **ppGroup;
+	FDFSGroupInfo **ppGroupEnd;
+	FDFSStorageDetail **ppStorage;
+	FDFSStorageDetail **ppStorageEnd;
+	int result;
+
+	snprintf(filname,sizeof(filname),"%s/data/%s", \
+		g_base_path, STORAGE_SERVERS_LIST_FILENAME);
+	if (NULL == (fp = fopen(filname,"w")))
+	{
+		logError("file: %s, line: %d, " \
+			"open \"%s\" fail, " \
+			"errno: %d, error info: %s", \
+			__FILE__,__LINE__, filname, errno, strerror(errno));
+		return errno != 0 ? errno : ENOENT;
+	}
+
+	result = 0;
+	ppGroupEnd = g_groups.sorted_groups + g_groups.count;
+	for (ppGroup = g_groups.sorted_groups; (ppGroup < ppGroupEnd) && (result == 0); ppGroup++)
+	{
+		ppStorageEnd = (*ppGroup)->sorted_servers + (*ppGroup)->count;
+		for (ppStorage = (*ppGroup)->sorted_servers; ppStorage < ppStorageEnd; ppStorage++)
+		{
+			if (fprintf(fp, \
+				"%s%c" \
+				"%s%c" \
+				"%d%c" \
+				"%s%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d%c" \
+				"%d\n", \
+				(*ppGroup)->group_name, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->ip_addr, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->status, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				((*ppStorage)->psync_src_server != NULL ? \
+				(*ppStorage)->psync_src_server->ip_addr : ""),
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->sync_until_timestamp, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.total_upload_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.success_upload_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.total_set_meta_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.success_set_meta_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.total_delete_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.success_delete_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.total_download_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.success_download_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.total_get_meta_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(*ppStorage)->stat.success_get_meta_count, \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(int)((*ppStorage)->stat.last_source_update), \
+				STORAGE_DATA_FIELD_SEPERATOR, \
+				(int)((*ppStorage)->stat.last_sync_update)
+			    ) <= 0)
+			{
+				logError("file: %s, line: %d, " \
+					"write to file \"%s\" fail, " \
+					"errno: %d, error info: %s", \
+					__FILE__,__LINE__, filname, \
+					errno, strerror(errno));
+				result = errno != 0 ? errno : ENOENT;
+				break;
+			}
+		}
+	}
+	fclose(fp);
+	return result;
+}
+
+static void tracker_mem_free_group(FDFSGroupInfo *pGroup)
+{
+	if (NULL != pGroup->sorted_servers)
+	{
+		free(pGroup->sorted_servers);
+	}
+
+	if (NULL != pGroup->active_servers)
+	{
+		free(pGroup->active_servers);
+	}
+
+	if (NULL != pGroup->all_servers)
+	{
+		free(pGroup->all_servers[0].ref_count);
+		free(pGroup->all_servers);
+	}
+}
+
 int tracker_mem_destroy()
 {
-	printf("tracker_mem_destroy done!\n");
 
-	return 0;
+
+	FDFSGroupInfo *pGroup;
+	FDFSGroupInfo *pEnd;
+	int result;
+
+	if (NULL == g_groups.groups)
+	{
+		return 0;
+	}
+	else
+	{
+		result = tracker_save_storages();
+		pEnd = g_groups.groups + g_groups.count;
+		for (pGroup = g_groups.groups; pGroup < pEnd; pGroup++)
+		{
+			tracker_mem_free_group(pGroup);
+		}
+
+		if (NULL != g_groups.sorted_groups)
+		{
+			free(g_groups.sorted_groups);
+		}
+		if (NULL != g_groups.groups[0].ref_count)
+		{
+			free(g_groups.groups[0].ref_count);
+		}
+
+		free(g_groups.groups);
+		g_groups.groups = NULL;
+	}
+
+	if (pthread_mutex_destroy(&mem_thread_lock) != 0)
+	{
+		logError("file: %s, line: %d, " \
+			"call pthread_mutex_destroy fail, " \
+			"errno: %d, error info: %s", \
+			__FILE__,__LINE__, errno, strerror(errno));
+		return errno != 0 ? errno : EAGAIN;
+	}
+
+#ifdef __DEBUG__
+	printf("tracker_mem_destroy done!\n");
+#endif
+	return result;
 }

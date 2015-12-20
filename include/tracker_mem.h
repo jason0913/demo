@@ -9,4 +9,7 @@ extern int tracker_mem_destroy();
 extern int tracker_mem_add_group(TrackerClientInfo *pClientInfo, \
 			const bool bIncRef, bool *bInserted);
 extern FDFSGroupInfo *tracker_mem_get_group(const char *group_name);
+
+extern int tracker_save_storages();
+
 #endif
