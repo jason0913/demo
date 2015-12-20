@@ -20,9 +20,289 @@ static pthread_mutex_t mem_thread_lock;
 
 #define TRACKER_MEM_ALLOC_ONCE	5
 
+static int tracker_mem_cmp_by_group_name(const void *p1, const void *p2)
+{
+	return strcmp((*((FDFSGroupInfo **)p1))->group_name,
+			(*((FDFSGroupInfo **)p2))->group_name);
+}
+
+FDFSGroupInfo *tracker_mem_get_group(const char *group_name)
+{
+	FDFSGroupInfo target_groups;
+	FDFSGroupInfo *pTargetGroups;
+	FDFSGroupInfo **ppGroup;
+
+	memset(&target_groups,0,sizeof(target_groups));
+	strcpy(target_groups.group_name,group_name);
+
+	pTargetGroups = &target_groups;
+	ppGroup = (FDFSGroupInfo **)bsearch(&pTargetGroups, \
+			g_groups.sorted_groups, \
+			g_groups.count, sizeof(FDFSGroupInfo *), \
+			tracker_mem_cmp_by_group_name);
+	if (NULL != ppGroup)
+	{
+		return *ppGroup;
+	}
+	else
+		return NULL;
+}
+
+int tracker_mem_realloc_groups()
+{
+
+	FDFSGroupInfo *old_groups;
+	FDFSGroupInfo **old_sorted_groups;
+	FDFSGroupInfo *new_groups;
+	FDFSGroupInfo **new_sorted_groups;
+	int new_size;
+	FDFSGroupInfo *pGroup;
+	FDFSGroupInfo *pEnd;
+	FDFSGroupInfo **ppSrcGroup;
+	FDFSGroupInfo **ppDestGroup;
+	FDFSGroupInfo **ppEnd;
+	int *new_ref_count;
+
+	new_size = g_groups.alloc_size +TRACKER_MEM_ALLOC_ONCE;
+	new_groups = (FDFSGroupInfo *)malloc(new_size * sizeof(FDFSGroupInfo));
+
+	if (NULL == new_groups)
+	{
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	new_sorted_groups = (FDFSGroupInfo **)malloc(sizeof(FDFSGroupInfo *) * new_size);
+	if (NULL == new_sorted_groups)
+	{
+		free(new_groups);
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	new_ref_count = (int *)malloc(sizeof(int));
+	if (NULL == new_ref_count)
+	{
+		free(new_groups);
+		free(new_sorted_groups);
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	memset(new_groups,0,sizeof(FDFSGroupInfo)*new_size);
+	memcpy(new_groups, g_groups.groups, \
+		sizeof(FDFSGroupInfo) * g_groups.count);
+
+	memset(new_sorted_groups,0,sizeof(FDFSGroupInfo *)*new_size);
+	ppDestGroup = new_sorted_groups;
+	ppEnd = g_groups.sorted_groups + g_groups.count;
+	for (ppSrcGroup = g_groups.sorted_groups; ppSrcGroup <ppEnd; ppSrcGroup++)
+	{
+		*ppDestGroup++ = new_groups + (*ppSrcGroup - g_groups.groups);
+	}
+
+	*new_ref_count = 0;
+	pEnd = new_groups + new_size;
+	for (pGroup = new_groups ; pGroup < pEnd; pGroup++)
+	{
+		pGroup->ref_count = new_ref_count;
+	}
+
+	old_groups = g_groups.groups;
+	old_sorted_groups = g_groups.sorted_groups;
+	g_groups.alloc_size = new_size;
+	g_groups.groups = new_groups;
+	g_groups.sorted_groups = new_sorted_groups;
+
+	if (FDFS_STORE_LOOKUP_SPEC_GROUP == g_groups.store_lookup)
+	{
+		g_groups.pStoreGroup = tracker_mem_get_group( \
+					g_groups.store_group);
+	}
+
+	sleep(1);
+
+	if (*(old_groups[0].ref_count) <= 0)
+	{
+		free(old_groups[0].ref_count);
+		free(old_groups);
+	}
+	else
+	{
+		pEnd = old_groups + g_groups.count;
+		for (pGroup=old_groups; pGroup<pEnd; pGroup++)
+		{
+			pGroup->dirty = true;
+		}
+	}
+
+	free(old_sorted_groups);
+
+	return 0;
+}
+
+static int tracker_mem_init_group(FDFSGroupInfo *pGroup)
+{
+	int *ref_count;
+	FDFSStorageDetail *pServer;
+	FDFSStorageDetail *pEnd;
+
+	pGroup->alloc_size =TRACKER_MEM_ALLOC_ONCE;
+	pGroup->count =0;
+	pGroup->all_servers = (FDFSStorageDetail *) \
+			malloc(sizeof(FDFSStorageDetail) * pGroup->alloc_size);
+	if (NULL == pGroup->all_servers)
+	{
+		return errno != 0 ? errno : ENOMEM;
+	}
+
+	memset(pGroup->all_servers,0,sizeof(FDFSStorageDetail) *pGroup->alloc_size);
+	pGroup->sorted_servers = (FDFSStorageDetail **) \
+		malloc(sizeof(FDFSStorageDetail *) * pGroup->alloc_size);
+	if (NULL == pGroup->sorted_servers)
+	{
+		return errno != 0 ? errno:ENOMEM;
+	}
+	memset(pGroup->sorted_servers,0,sizeof(FDFSStorageDetail *) * pGroup->alloc_size);
+	pGroup->active_servers = (FDFSStorageDetail **) \
+		malloc(sizeof(FDFSStorageDetail *) * pGroup->alloc_size);
+	if (NULL == pGroup->active_servers)
+	{
+		return errno != 0 ? errno: ENOMEM;
+	}
+
+	memset(pGroup->active_servers, 0, \
+		sizeof(FDFSStorageDetail *) * pGroup->alloc_size);
+
+	ref_count = (int *) malloc(sizeof(int));
+	if (NULL == ref_count)
+	{
+		return errno != 0 ? errno :ENOMEM;
+	}
+
+	*ref_count = 0;
+	pEnd = pGroup->all_servers +pGroup->alloc_size;
+	for (pServer = pGroup->all_servers; pServer < pEnd; pServer++)
+	{
+		pServer->ref_count = ref_count;
+	}
+
+	return 0;
+}
+
+static void tracker_mem_insert_into_sorted_groups( \
+		FDFSGroupInfo *pTargetGroup)
+{
+	FDFSGroupInfo **ppGroup;
+	FDFSGroupInfo **ppEnd;
+
+	ppEnd = g_groups.sorted_groups + g_groups.count;
+	for (ppGroup = ppEnd; ppGroup > g_groups.sorted_groups; ppGroup--)
+	{
+		if (strcmp(pTargetGroup->group_name, \
+			   (*(ppGroup-1))->group_name) > 0)
+		{
+			*ppGroup = pTargetGroup;
+			return;
+		}
+		else
+		{
+			*ppGroup = *(ppGroup -1);
+		}
+	}
+
+	*ppGroup = pTargetGroup;
+}
+
 int tracker_mem_add_group(TrackerClientInfo *pClientInfo, \
 			const bool bIncRef, bool *bInserted)
 {
+	FDFSGroupInfo *pGroup;
+	int result;
+
+	*bInserted = false;
+	pGroup = tracker_mem_get_group(pClientInfo->group_name);
+	if (NULL != pGroup)
+	{
+	#ifdef __DEBUG__
+		printf("g_groups.count=%d, found %s\n,file:%s,line:%d\n",\
+			 g_groups.count, pClientInfo->group_name,__FILE__,__LINE__);
+	#endif
+	}
+	else
+	{
+		if (0 != pthread_mutex_lock(&mem_thread_lock))
+		{
+			logError("file: %s, line: %d, " \
+				"call pthread_mutex_lock fail, " \
+				"errno: %d, error info: %s", \
+				__FILE__,__LINE__, errno, strerror(errno));
+
+			return errno != 0 ? errno : EAGAIN;
+		}
+		result =0;
+		while(1)
+		{
+			if (g_groups.count >= g_groups.alloc_size)
+			{
+				result = tracker_mem_realloc_groups();
+				if (result != 0)
+				{
+				#ifdef __DEBUG__
+					printf("tracker_mem_realloc_groups failed,file:%s,line:%d\n", __FILE__,__LINE__);
+				#endif
+					break;
+				}
+			}
+			pGroup = g_groups.groups + g_groups.count;
+			result = tracker_mem_init_group(pGroup);
+			if (result != 0)
+			{
+			#ifdef __DEBUG__
+				printf("tracker_mem_init_group failed,file:%s,line:%d\n", __FILE__,__LINE__);
+			#endif
+				break;
+			}
+			strcpy(pGroup->group_name,pClientInfo->group_name);
+			tracker_mem_insert_into_sorted_groups(pGroup);
+			g_groups.count++;
+
+			if ((g_groups.store_lookup == \
+				FDFS_STORE_LOOKUP_SPEC_GROUP) && \
+				(g_groups.pStoreGroup == NULL) && \
+				(strcmp(g_groups.store_group, \
+					pGroup->group_name) == 0))
+			{
+				g_groups.pStoreGroup = pGroup;
+			}
+			break;
+		}
+		if (0 != pthread_mutex_unlock(&mem_thread_lock))
+		{
+			logError("file: %s, line: %d, " \
+				"call pthread_mutex_unlock fail, " \
+				"errno: %d, error info: %s", \
+				__FILE__,__LINE__, errno, strerror(errno));
+
+			return errno != 0 ? errno : EAGAIN;
+		}
+
+		if (0 != result)
+		{
+			return result;
+		}
+		*bInserted = true;
+
+	}
+
+	if (bIncRef)
+	{
+		++(*(pGroup->ref_count));
+
+	#ifdef __DEBUG__
+		printf("group ref_count=%d,file:%s,line:%d\n",\
+		 	*(pGroup->ref_count),__FILE__,__LINE__);
+	#endif
+	}
+	pClientInfo->pGroup = pGroup;
+	pClientInfo->pAllocedGroups = g_groups.groups;
 
 #ifdef __DEBUG__
 	printf("tracker_mem_add_group to be implete! ===>>>>,\
