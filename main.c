@@ -12,6 +12,7 @@
 #include "shared_func.h"
 #include "fdfs_global.h"
 #include "tracker_service.h"
+#include "tracker_mem.h"
 
 bool bReloadFlag = false;
 
