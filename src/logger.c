@@ -10,7 +10,7 @@
 #include "shared_func.h"
 #include "fdfs_global.h"
 
-#define LINE_MAX 256
+#define LINE_MAX 1024
 
 char g_error_file_prefix[64] = {'\0'};
 
@@ -84,7 +84,7 @@ static void doLog(const char *prefix,const char *text)
 	}
 }
 
-void logError(const char *prefix, const char *format,...)
+void logError(const char *format,...)
 {
 	char logBuffer[LINE_MAX];
 	va_list ap;

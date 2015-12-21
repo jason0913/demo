@@ -138,3 +138,35 @@ int nbaccept(int sock,int timeout,int *err_no)
 #endif
 	return result;
 }
+
+in_addr_t getIpaddr(getnamefunc getname, int sock, char *buff, const int bufferSize)
+{
+	struct sockaddr_in addr;
+	int addrlen;
+
+	memset(&addr, 0, sizeof(addr));
+	addrlen = sizeof(addr);
+
+	if (getname(sock, (struct sockaddr *)&addr, &addrlen) != 0)
+	{
+		buff[0] = '\0';
+		return INADDR_NONE;
+	}
+
+	if (addrlen > 0)
+	{
+		snprintf(buff, bufferSize, "%s", inet_ntoa(addr.sin_addr));
+	}
+	else
+	{
+		buff[0] = '\0';
+	}
+
+	return addr.sin_addr.s_addr;
+}
+
+int tcprecvdata(int sock,void* data,int size,int timeout)
+{
+
+	return 1;
+}
