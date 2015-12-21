@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <unistd.h>
 #include <pthread.h>
 #include <unistd.h>
 #include "tracker_service.h"
@@ -15,5 +16,6 @@ void* tracker_thread_entrance(void* arg)
 	{
 		printf("thread id %x\n", pthread_self());
 		sleep(2);
+		break;
 	}
 }

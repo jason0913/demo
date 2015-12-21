@@ -3,9 +3,11 @@
 CC = gcc
 RM = rm
 #FLAGS = -Wall -O2
-FLAGS = -Wall -lpthread -g
+FLAGS = -Wall -lpthread -D__DEBUG__ -g
 RMFLAG = -rf
 
+EXDIR = ../data ../log
+INCLUDE = ../include/
 SRCS = $(wildcard *.c)
 OBJS = $(patsubst %.c,%.o,$(SRCS))
 EXE = demo.exe
@@ -15,8 +17,8 @@ $(EXE): $(OBJS)
 	@echo "$$OBJS = $(OBJS)"
 	$(CC) -o $@ $^ $(FLAGS)
 %.o: %.c
-	$(CC) -c $^ -o $@ $(FLAGS)
+	$(CC) -c $^  -I $(INCLUDE) -o $@ $(FLAGS)
 
 clean:
-	$(RM) $(RMFLAG) $(EXE) $(OBJS)
+	$(RM) $(RMFLAG) $(EXE) $(OBJS) $(EXDIR)
 
