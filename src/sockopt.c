@@ -147,7 +147,7 @@ in_addr_t getIpaddr(getnamefunc getname, int sock, char *buff, const int bufferS
 	memset(&addr, 0, sizeof(addr));
 	addrlen = sizeof(addr);
 
-	if (getname(sock, (struct sockaddr *)&addr, &addrlen) != 0)
+	if (getname(sock, (struct sockaddr *)&addr, (socklen_t *)&addrlen) != 0)
 	{
 		buff[0] = '\0';
 		return INADDR_NONE;
