@@ -342,7 +342,7 @@ int tcpsenddata(int sock,void* data,int size,int timeout)
 				fprintf(stderr,"%s,%d:tcpsenddata call write failed:%s.\n",
 					__FILE__,__LINE__,strerror(errno));
 #endif
-				return(-1);
+				return (-1);
 			}
 
 			byteleft-=result;
